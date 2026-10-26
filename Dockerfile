@@ -9,7 +9,10 @@ ARG HADOOP_VERSION=3.2.2
 ARG HADOOP_SHA512=054753301927d31a69b80be3e754fd330312f0b1047bcfa4ab978cdce18319ed912983e6022744d8f0c8765b98c87256eb1c3017979db1341d583d2cee22d029
 ARG SPARK_VERSION=4.0.1
 ARG SPARK_SHA512=9198602c6b931b46686f32a25793b3bb58b522cd98a5b6a94d2484bae32e3e7b520d60f4bffe72ba29ff5c9ecd862443841ee47dde0f2f9e1bf52539f7baef41
-ARG APACHE=https://archive.apache.org/dist
+# Fast mirror first (archive.apache.org is very slow, ~0.3 MB/s); the official archive is the fallback.
+# Every download is checked against the official SHA-512 above, whichever server it came from.
+ARG APACHE_MIRRORS="https://mirrors.huaweicloud.com/apache https://repo.huaweicloud.com/apache https://archive.apache.org/dist"
+ARG APACHE=https://mirrors.huaweicloud.com/apache
 ARG LAB_USER=rit
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -36,7 +39,11 @@ WORKDIR /home/${LAB_USER}
 
 # Download, verify (official SHA-512) and extract: Hadoop into ~/USN, Spark into ~.
 RUN set -eux; mkdir -p USN; \
-    get() { curl -fsSL --retry 5 -o "$2" "${APACHE}/$1"; echo "$3  $2" | sha512sum -c -; tar -xzf "$2"; rm "$2"; }; \
+    get() { for m in ${APACHE_MIRRORS}; do \
+              if curl -fsSL --retry 3 --speed-limit 100000 --speed-time 60 -o "$2" "$m/$1" \
+                 && echo "$3  $2" | sha512sum -c -; then tar -xzf "$2"; rm "$2"; return 0; fi; \
+              echo "download from $m failed, trying the next server"; rm -f "$2"; \
+            done; return 1; }; \
     (cd USN && get hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz hadoop.tgz "${HADOOP_SHA512}" \
         && rm -rf hadoop-${HADOOP_VERSION}/share/doc); \
     get spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.tgz spark.tgz "${SPARK_SHA512}"
