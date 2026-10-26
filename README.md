@@ -26,6 +26,9 @@ Hadoop and Spark are **not** on the PATH until you create and `source Bash.sh` i
 
 The HDFS web UI (port 9870) and Spark UI (port 4040) open from the **Ports** tab.
 
+**How to run every program, where the datasets are, and how to check Hadoop and Spark work:
+see [PRACTICE.md](PRACTICE.md).**
+
 ## 1. One-time setup (Docker on your own laptop)
 
 1. Install **Docker Desktop**: <https://www.docker.com/products/docker-desktop/>
