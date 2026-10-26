@@ -8,6 +8,8 @@ LAB_USN="$(cat "$HOME/.lab_usn" 2>/dev/null || echo USN)"
 LAB_HADOOP="$HOME/$LAB_USN/$LAB_HADOOP_DIR"
 export PYSPARK_PYTHON=python3
 
+# Show rit@rit like the lab, even where the host name differs (e.g. GitHub Codespaces).
+[ "$(hostname)" != rit ] && PS1="${PS1//\\h/rit}"
 _LAB_PS1="$PS1"
 
 # ---- HDFS mode (Program 1) -------------------------------------------------
