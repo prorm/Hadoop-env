@@ -1,0 +1,42 @@
+#!/bin/bash
+# Put the lab folders back to how they look at the start of the exam.
+# Nothing is deleted: your files are moved to ~/lab-backup-<time>/.
+set -e
+. /etc/bigdata-lab.env
+USN_DIR="$HOME/$(cat "$HOME/.lab_usn" 2>/dev/null || echo USN)"
+BACKUP="$HOME/lab-backup-$(date +%Y%m%d-%H%M%S)"
+
+echo "This moves everything you created inside $USN_DIR and ~/$LAB_SPARK_DIR"
+echo "to $BACKUP and wipes the practice HDFS. Hadoop, Spark and ~/DataSet stay."
+read -r -p "Continue? [y/N] " ok
+[[ "$ok" =~ ^[Yy]$ ]] || { echo "Cancelled."; exit 0; }
+
+moved=0
+move_extras() {   # $1 = folder, $2 = manifest of its original entries, $3 = backup subfolder
+    [ -d "$1" ] && [ -f "$2" ] || return 0
+    local entry name
+    for entry in "$1"/* "$1"/.[!.]*; do
+        [ -e "$entry" ] || continue
+        name="$(basename "$entry")"
+        if ! grep -qxF "$name" "$2"; then
+            mkdir -p "$BACKUP/$3"; mv "$entry" "$BACKUP/$3/"; moved=$((moved + 1))
+        fi
+    done
+}
+move_extras "$USN_DIR/$LAB_HADOOP_DIR" /opt/lab-manifest/hadoop "$LAB_HADOOP_DIR"
+move_extras "$HOME/$LAB_SPARK_DIR" /opt/lab-manifest/spark "$LAB_SPARK_DIR"
+# Anything else made directly inside the USN folder
+for entry in "$USN_DIR"/* "$USN_DIR"/.[!.]*; do
+    [ -e "$entry" ] || continue
+    [ "$(basename "$entry")" = "$LAB_HADOOP_DIR" ] && continue
+    mkdir -p "$BACKUP"; mv "$entry" "$BACKUP/"; moved=$((moved + 1))
+done
+
+# Practice HDFS
+pkill -f proc_datanode 2>/dev/null || true
+pkill -f proc_namenode 2>/dev/null || true
+for _ in $(seq 1 20); do pgrep -f 'proc_(name|data)node' > /dev/null || break; sleep 1; done
+rm -rf "$HOME/.hdfs"
+
+echo "Moved $moved item(s)$( [ $moved -gt 0 ] && echo " to $BACKUP" ). HDFS wiped."
+echo "Open a new terminal (or run hdfs-off) and start again."

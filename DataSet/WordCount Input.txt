@@ -1,0 +1,3 @@
+big data is big
+hadoop stores big data
+spark and hadoop process data

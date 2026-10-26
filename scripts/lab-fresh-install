@@ -1,0 +1,49 @@
+#!/bin/bash
+# Practise the installation itself: hide the ready-made Hadoop/Spark folders
+# and download the official tarballs to ~/Downloads so you can extract them.
+#   lab-fresh-install            set up the practice
+#   lab-fresh-install --restore  put the ready-made folders back
+set -e
+. /etc/bigdata-lab.env
+USN="$(cat "$HOME/.lab_usn" 2>/dev/null || echo USN)"
+HADOOP_AT="$HOME/$USN/$LAB_HADOOP_DIR"
+SPARK_AT="$HOME/$LAB_SPARK_DIR"
+STASH="$HOME/.lab-installed"
+
+if [ "$1" = "--restore" ]; then
+    for pair in "$LAB_HADOOP_DIR:$HADOOP_AT" "$LAB_SPARK_DIR:$SPARK_AT"; do
+        name="${pair%%:*}"; dest="${pair#*:}"
+        [ -d "$STASH/$name" ] || continue
+        [ -e "$dest" ] && mv "$dest" "$HOME/lab-backup-$(date +%Y%m%d-%H%M%S)-$name"
+        mkdir -p "$(dirname "$dest")"; mv "$STASH/$name" "$dest"
+    done
+    rmdir "$STASH" 2>/dev/null || true
+    echo "Ready-made Hadoop and Spark restored."
+    exit 0
+fi
+
+echo "This hides the installed Hadoop and Spark folders (restore any time with"
+echo "lab-fresh-install --restore) and downloads about 950 MB of tarballs."
+read -r -p "Continue? [y/N] " ok
+[[ "$ok" =~ ^[Yy]$ ]] || { echo "Cancelled."; exit 0; }
+
+mkdir -p "$STASH" "$HOME/Downloads"
+[ -d "$HADOOP_AT" ] && [ ! -e "$STASH/$LAB_HADOOP_DIR" ] && mv "$HADOOP_AT" "$STASH/"
+[ -d "$SPARK_AT" ] && [ ! -e "$STASH/$LAB_SPARK_DIR" ] && mv "$SPARK_AT" "$STASH/"
+
+cd "$HOME/Downloads"
+for url in "$LAB_HADOOP_URL" "$LAB_SPARK_URL"; do
+    f="$(basename "$url")"
+    [ -f "$f" ] && { echo "$f already downloaded"; continue; }
+    echo "Downloading $f ..."
+    wget -q --show-progress -O "$f.part" "$url" && mv "$f.part" "$f"
+done
+
+cat <<EOF
+
+Done. Now install them yourself:
+  mkdir -p ~/$USN && cd ~/$USN && tar -xzf ~/Downloads/$(basename "$LAB_HADOOP_URL")
+  cd ~ && tar -xzf ~/Downloads/$(basename "$LAB_SPARK_URL")
+  cd ~/$USN/$LAB_HADOOP_DIR && nano Bash.sh && source Bash.sh && hadoop version
+  pyspark          (spark-submit and pyspark work again once the Spark folder is back)
+EOF

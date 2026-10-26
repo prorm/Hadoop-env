@@ -1,0 +1,26 @@
+# Big Data Lab (CI51) practice machine.
+#   1. Put your USN in the .env file (USN=1MS23CS000)
+#   2. docker compose up -d          (first time downloads ~1 GB)
+#   3. docker compose exec lab bash  (open as many terminals as you like)
+#   4. docker compose stop           (when done; your files are kept)
+services:
+  lab:
+    # Builds locally by default. If your instructor shares a pre-built image, set LAB_IMAGE in .env
+    image: ${LAB_IMAGE:-bigdata-lab:latest}
+    build: .
+    container_name: bigdata-lab
+    hostname: rit
+    user: rit
+    working_dir: /home/rit
+    environment:
+      USN: ${USN:-USN}
+    volumes:
+      - lab-home:/home/rit   # everything you make is kept here between restarts
+      - ./shared:/home/rit/shared   # this folder is also visible on your laptop
+    ports:
+      - "9870:9870"   # HDFS web UI (after hdfs-on)
+      - "4040:4040"   # Spark web UI (while a Spark job or pyspark is running)
+    restart: unless-stopped
+
+volumes:
+  lab-home:

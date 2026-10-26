@@ -1,0 +1,5 @@
+.git
+shared
+*.md
+start-lab.*
+.env

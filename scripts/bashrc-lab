@@ -1,0 +1,88 @@
+# Added to ~/.bashrc by the Big Data Lab image.
+# Hadoop and Spark are NOT on PATH on purpose: like the lab, you create Bash.sh inside
+# each folder and run "source Bash.sh" there (once per terminal).
+
+. /etc/bigdata-lab.env
+for _i in $(seq 1 30); do [ -f "$HOME/.lab_usn" ] && break; [ $_i = 1 ] && echo "Setting up your lab folder..."; sleep 1; done
+LAB_USN="$(cat "$HOME/.lab_usn" 2>/dev/null || echo USN)"
+LAB_HADOOP="$HOME/$LAB_USN/$LAB_HADOOP_DIR"
+export PYSPARK_PYTHON=python3
+
+_LAB_PS1="$PS1"
+
+# ---- HDFS mode (Program 1) -------------------------------------------------
+# hdfs-on   start a single-node HDFS and point THIS terminal's hdfs/hadoop at it
+# hdfs-off  back to local files in this terminal (needed for Programs 2-6)
+# hdfs-stop stop the HDFS daemons
+_lab_hdfs_env() {
+    export JAVA_HOME="${JAVA_HOME:-$(dirname "$(dirname "$(readlink -f "$(which javac)")")")}"
+    export HADOOP_LOG_DIR="$HOME/.hdfs/logs" HADOOP_PID_DIR="$HOME/.hdfs/pids"
+}
+
+hdfs-on() {
+    local conf="$HOME/.hdfs/conf" hdfs="$LAB_HADOOP/bin/hdfs"
+    if [ ! -x "$hdfs" ]; then echo "$LAB_HADOOP_DIR not found in ~/$LAB_USN"; return 1; fi
+    _lab_hdfs_env
+    if [ ! -f "$conf/.ready" ]; then
+        mkdir -p "$conf" && cp -r "$LAB_HADOOP/etc/hadoop/." "$conf/" \
+            && cp /opt/hdfs-conf-overrides/*.xml "$conf/" && touch "$conf/.ready"
+    fi
+    export HADOOP_CONF_DIR="$conf"
+    if [ ! -d "$HOME/.hdfs/name/current" ]; then
+        echo "Formatting a new HDFS (first time only)..."
+        "$hdfs" namenode -format -force -nonInteractive > "$HOME/.hdfs/format.log" 2>&1 \
+            || { echo "format failed, see ~/.hdfs/format.log"; return 1; }
+    fi
+    pgrep -f proc_namenode > /dev/null || "$hdfs" --daemon start namenode
+    pgrep -f proc_datanode > /dev/null || "$hdfs" --daemon start datanode
+    echo "Waiting for HDFS..."
+    "$hdfs" dfsadmin -safemode wait > /dev/null 2>&1
+    local i; for i in $(seq 1 30); do
+        "$hdfs" dfsadmin -report 2>/dev/null | grep -q "Live datanodes (1)" && break; sleep 1
+    done
+    PS1="(hdfs) $_LAB_PS1"
+    echo "HDFS is running (web UI: http://localhost:9870). This terminal now uses HDFS."
+    echo "Next: cd ~/$LAB_USN/$LAB_HADOOP_DIR && source Bash.sh   then the hdfs dfs commands."
+    echo "Done with HDFS? run hdfs-off before the MapReduce/Spark programs."
+}
+
+hdfs-off() {
+    unset HADOOP_CONF_DIR
+    PS1="$_LAB_PS1"
+    echo "This terminal is back to local files (HDFS keeps running; hdfs-stop stops it)."
+}
+
+hdfs-stop() {
+    _lab_hdfs_env
+    HADOOP_CONF_DIR="$HOME/.hdfs/conf" "$LAB_HADOOP/bin/hdfs" --daemon stop datanode 2>/dev/null
+    HADOOP_CONF_DIR="$HOME/.hdfs/conf" "$LAB_HADOOP/bin/hdfs" --daemon stop namenode 2>/dev/null
+    hdfs-off > /dev/null
+    echo "HDFS stopped."
+}
+
+lab-help() {
+    cat <<HELP
+Big Data Lab (CI51) practice machine   Hadoop 3.2.2 | Spark ${LAB_SPARK_VERSION} | Java 17 | Python 3
+
+  ~/$LAB_USN/$LAB_HADOOP_DIR   Programs 1-3 (HDFS, MapReduce)
+  ~/$LAB_SPARK_DIR   Programs 4-6 (Spark)
+  ~/DataSet   the lab's dataset files (names have spaces: put them in quotes)
+
+  Hadoop: inside $LAB_HADOOP_DIR, Bash.sh holds
+    export JAVA_HOME=\$(dirname \$(dirname \$(readlink -f \$(which javac))))
+    export PATH=\$PATH:\$(pwd)/bin
+    export CLASSPATH=\$(hadoop classpath)
+  Spark: inside $LAB_SPARK_DIR, Bash.sh holds the first two lines only.
+  Then: source Bash.sh ; echo \$JAVA_HOME ; echo \$PATH ; echo \$CLASSPATH
+
+  hdfs-on / hdfs-off / hdfs-stop   real HDFS for Program 1 (run hdfs-off before 2-6)
+  lab-reset                        clean your work back to exam-start state (backs it up)
+  lab-fresh-install                practise installing Hadoop/Spark from the tarballs
+  lab-help                         show this again
+HELP
+}
+
+if [ -z "$LAB_GREETED" ] && [[ $- == *i* ]]; then
+    export LAB_GREETED=1
+    echo "Big Data Lab ready: Hadoop 3.2.2, Spark ${LAB_SPARK_VERSION}, Java 17.  Type lab-help for the cheat sheet."
+fi
