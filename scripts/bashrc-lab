@@ -10,6 +10,8 @@ export PYSPARK_PYTHON=python3
 
 # Show rit@rit like the lab, even where the host name differs (e.g. GitHub Codespaces).
 [ "$(hostname)" != rit ] && PS1="${PS1//\\h/rit}"
+# Codespaces opens terminals in /workspaces/...; start in the home folder like the lab.
+case "$PWD" in /workspaces*) cd "$HOME" ;; esac
 _LAB_PS1="$PS1"
 
 # ---- HDFS mode (Program 1) -------------------------------------------------
