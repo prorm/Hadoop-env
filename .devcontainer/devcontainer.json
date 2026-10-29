@@ -1,9 +1,6 @@
 {
   "name": "CI51 Big Data Lab",
-  "build": {
-    "dockerfile": "../Dockerfile",
-    "context": ".."
-  },
+  "image": "ghcr.io/prorm/bigdata-lab:latest",
   "remoteUser": "rit",
   "containerUser": "rit",
   "hostRequirements": {
