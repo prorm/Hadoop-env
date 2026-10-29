@@ -21,6 +21,10 @@ _LAB_PS1="$PS1"
 _lab_hdfs_env() {
     export JAVA_HOME="${JAVA_HOME:-$(dirname "$(dirname "$(readlink -f "$(which javac)")")")}"
     export HADOOP_LOG_DIR="$HOME/.hdfs/logs" HADOOP_PID_DIR="$HOME/.hdfs/pids"
+    # Hadoop 3.2.2 on Java 17: without this, "Browse the file system" on
+    # localhost:9870 fails with HTTP 500 (JAXB needs java.lang opened).
+    export HDFS_NAMENODE_OPTS="--add-opens java.base/java.lang=ALL-UNNAMED"
+    export HDFS_DATANODE_OPTS="--add-opens java.base/java.lang=ALL-UNNAMED"
 }
 
 hdfs-on() {
